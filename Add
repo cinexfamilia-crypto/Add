@@ -12,28 +12,26 @@ local player = Players.LocalPlayer
 local Config = {
     WalkSpeedEnabled = false,
     WalkSpeedValue = 16,
-    NoclipEnabled = false
+    VIPs = {"player1","player2"}, -- Coloque aqui os nomes dos VIPs
 }
 
-local VIPs = {"JogadorVIP1","JogadorVIP2"} -- Coloque aqui os nomes dos VIPs
-
 ------------------------------------------------
--- GUI (PRETO / TOPO VERMELHO UNIDO)
+-- GUI
 ------------------------------------------------
 local gui = Instance.new("ScreenGui")
-gui.Name = "WalkMasterHub"
-gui.Parent = player:WaitForChild("PlayerGui") -- Persistente
+gui.Name = "WalkMasterVIPHub"
+gui.Parent = player:WaitForChild("PlayerGui")
 
 -- FRAME PRINCIPAL
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.fromScale(0.25,0.23)
+frame.Size = UDim2.fromScale(0.25,0.2)
 frame.Position = UDim2.fromScale(0.05,0.3)
 frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
 frame.BorderSizePixel = 0
 
+-- TOPO (unido)
 local top = Instance.new("Frame", frame)
 top.Size = UDim2.fromScale(1,0.2)
-top.Position = UDim2.fromScale(0,0)
 top.BackgroundColor3 = Color3.fromRGB(200,0,0)
 top.BorderSizePixel = 0
 
@@ -44,7 +42,6 @@ title.TextColor3 = Color3.new(1,1,1)
 title.TextScaled = true
 title.BackgroundTransparency = 1
 
--- BOTÃO MINIMIZAR
 local minBtn = Instance.new("TextButton", top)
 minBtn.Size = UDim2.fromScale(0.15,1)
 minBtn.Position = UDim2.fromScale(0.7,0)
@@ -53,7 +50,6 @@ minBtn.TextScaled = true
 minBtn.BackgroundColor3 = Color3.fromRGB(120,0,0)
 minBtn.TextColor3 = Color3.new(1,1,1)
 
--- BOTÃO FECHAR
 local closeBtn = Instance.new("TextButton", top)
 closeBtn.Size = UDim2.fromScale(0.15,1)
 closeBtn.Position = UDim2.fromScale(0.85,0)
@@ -64,7 +60,7 @@ closeBtn.TextColor3 = Color3.new(1,1,1)
 
 -- BOTÃO WALK SPEED
 local btn = Instance.new("TextButton", frame)
-btn.Size = UDim2.fromScale(0.4,0.25)
+btn.Size = UDim2.fromScale(0.4,0.3)
 btn.Position = UDim2.fromScale(0.05,0.25)
 btn.Text = "OFF"
 btn.TextColor3 = Color3.new(1,1,1)
@@ -73,9 +69,9 @@ btn.TextScaled = true
 
 -- CAIXA DE VELOCIDADE
 local spBox = Instance.new("TextBox", frame)
-spBox.Size = UDim2.fromScale(0.5,0.25)
+spBox.Size = UDim2.fromScale(0.5,0.3)
 spBox.Position = UDim2.fromScale(0.5,0.25)
-spBox.Text = "" -- inicia vazia
+spBox.Text = ""
 spBox.PlaceholderText = "16"
 spBox.BackgroundColor3 = Color3.fromRGB(30,30,30)
 spBox.TextColor3 = Color3.new(1,1,1)
@@ -90,18 +86,7 @@ spBox:GetPropertyChangedSignal("Text"):Connect(function()
 	spBox.TextColor3 = Color3.new(1,1,1)
 end)
 
--- BOTÃO NOCLIP
-local noclipBtn = Instance.new("TextButton", frame)
-noclipBtn.Size = UDim2.fromScale(0.9,0.2)
-noclipBtn.Position = UDim2.fromScale(0.05,0.55)
-noclipBtn.Text = "Noclip OFF"
-noclipBtn.BackgroundColor3 = Color3.fromRGB(100,0,100)
-noclipBtn.TextColor3 = Color3.new(1,1,1)
-noclipBtn.TextScaled = true
-
-------------------------------------------------
 -- BOTÃO MINI
-------------------------------------------------
 local minimized = false
 local miniBtn = Instance.new("TextButton", gui)
 miniBtn.Size = UDim2.fromOffset(30,30)
@@ -113,7 +98,7 @@ miniBtn.TextColor3 = Color3.new(1,1,1)
 miniBtn.Visible = false
 
 ------------------------------------------------
--- DRAG (frame todo)
+-- DRAG SÓ PELO TOPO
 ------------------------------------------------
 local dragging, dragStart, startPos
 local function setupDrag(f)
@@ -138,10 +123,11 @@ local function setupDrag(f)
 			)
 		end
 	end)
+	UIS.InputEnded:Connect(function(i)
+		dragging = false
+	end)
 end
-
-setupDrag(frame)
-setupDrag(miniBtn)
+setupDrag(top)
 
 ------------------------------------------------
 -- MINIMIZAR E FECHAR
@@ -151,13 +137,11 @@ minBtn.MouseButton1Click:Connect(function()
 	frame.Visible = not minimized
 	miniBtn.Visible = minimized
 end)
-
 miniBtn.MouseButton1Click:Connect(function()
 	minimized = false
 	frame.Visible = true
 	miniBtn.Visible = false
 end)
-
 closeBtn.MouseButton1Click:Connect(function()
 	gui:Destroy()
 end)
@@ -187,42 +171,19 @@ if player.Character then
 	local hum = player.Character:WaitForChild("Humanoid")
 	updateWalkSpeed(hum)
 end
-
 player.CharacterAdded:Connect(function(char)
 	local hum = char:WaitForChild("Humanoid")
 	updateWalkSpeed(hum)
 end)
 
 ------------------------------------------------
--- NOCLIP
-------------------------------------------------
-noclipBtn.MouseButton1Click:Connect(function()
-	Config.NoclipEnabled = not Config.NoclipEnabled
-	noclipBtn.Text = Config.NoclipEnabled and "Noclip ON" or "Noclip OFF"
-end)
-
-Run.RenderStepped:Connect(function()
-	if Config.NoclipEnabled and player.Character then
-		for _, part in pairs(player.Character:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = false
-			end
-		end
-	end
-end)
-
-------------------------------------------------
--- TAG "DONO" E "VIP"
+-- TAGS
 ------------------------------------------------
 Run.RenderStepped:Connect(function()
 	for _, plr in pairs(Players:GetPlayers()) do
 		if plr.Character and plr.Character:FindFirstChild("Head") then
-			-- Remove TAG antiga
-			if plr.Character.Head:FindFirstChild("DonoTag") then plr.Character.Head.DonoTag:Destroy() end
-			if plr.Character.Head:FindFirstChild("VIPTag") then plr.Character.Head.VIPTag:Destroy() end
-
-			-- DONO
-			if plr.Name == "fhatom2" then
+			-- TAG DONO
+			if plr.Name == "fhatom2" and not plr.Character.Head:FindFirstChild("DonoTag") then
 				local tag = Instance.new("BillboardGui", plr.Character.Head)
 				tag.Name = "DonoTag"
 				tag.Size = UDim2.new(0,100,0,50)
@@ -244,8 +205,9 @@ Run.RenderStepped:Connect(function()
 						text.TextColor3 = Color3.fromHSV(hue/360,1,1)
 					end
 				end)
-			-- VIP
-			elseif table.find(VIPs,plr.Name) then
+			end
+			-- TAG VIP
+			if table.find(Config.VIPs,plr.Name) and plr.Name ~= "fhatom2" and not plr.Character.Head:FindFirstChild("VIPTag") then
 				local tag = Instance.new("BillboardGui", plr.Character.Head)
 				tag.Name = "VIPTag"
 				tag.Size = UDim2.new(0,100,0,50)
@@ -267,6 +229,34 @@ Run.RenderStepped:Connect(function()
 						text.TextColor3 = Color3.fromHSV(hue/360,1,1)
 					end
 				end)
+			end
+		end
+	end
+end)
+
+------------------------------------------------
+-- BOTÃO NOCLIP PARA VIP
+------------------------------------------------
+local noclipBtn = Instance.new("TextButton", frame)
+noclipBtn.Size = UDim2.fromScale(0.9,0.15)
+noclipBtn.Position = UDim2.fromScale(0.05,0.6)
+noclipBtn.Text = "Noclip"
+noclipBtn.TextColor3 = Color3.new(1,1,1)
+noclipBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+noclipBtn.TextScaled = true
+noclipBtn.Visible = table.find(Config.VIPs, player.Name) or player.Name=="fhatom2"
+
+local NoclipEnabled = false
+noclipBtn.MouseButton1Click:Connect(function()
+	NoclipEnabled = not NoclipEnabled
+	noclipBtn.Text = NoclipEnabled and "ON" or "OFF"
+end)
+
+Run.RenderStepped:Connect(function()
+	if NoclipEnabled and player.Character then
+		for _, part in pairs(player.Character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
 			end
 		end
 	end
