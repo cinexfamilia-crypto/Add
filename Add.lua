@@ -1,129 +1,141 @@
--- ================== HUB ANTI-LAG FINAL ==================
+--// SERVIÇOS
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local Camera = Workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local backpack = player:WaitForChild("Backpack")
 
--- HUB GUI
-local ScreenGui = Instance.new("ScreenGui", PlayerGui)
-ScreenGui.Name = "MasterHub"
+--// VARIÁVEIS
+local giveEnabled = false
+local dragToggle = false
+local dragStart, startPos
 
-local Hub = Instance.new("Frame", ScreenGui)
-Hub.Size = UDim2.new(0,220,0,130)
-Hub.Position = UDim2.new(0.75,0,0.1,0)
-Hub.BackgroundColor3 = Color3.fromRGB(40,40,40)
-Hub.BackgroundTransparency = 0.4
-Hub.Active = true
-Hub.Draggable = true
+--// GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "GiveToolHub"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
 
--- +FPS BUTTON
-local FPSButton = Instance.new("TextButton", Hub)
-FPSButton.Size = UDim2.new(0,200,0,50)
-FPSButton.Position = UDim2.new(0,10,0,10)
-FPSButton.Text = "+FPS"
-FPSButton.Font = Enum.Font.SourceSansBold
-FPSButton.TextScaled = true
-FPSButton.TextColor3 = Color3.new(1,1,1)
-FPSButton.BackgroundColor3 = Color3.fromRGB(255,0,0)
+--// HUB FRAME
+local hub = Instance.new("Frame")
+hub.Size = UDim2.fromScale(0.6, 0.6)
+hub.Position = UDim2.fromScale(0.2, 0.2)
+hub.BackgroundColor3 = Color3.fromRGB(60,60,60)
+hub.BorderSizePixel = 0
+hub.Active = true
+hub.Parent = gui
 
--- FPS DISPLAY
-local FPSLabel = Instance.new("TextLabel", ScreenGui)
-FPSLabel.AnchorPoint = Vector2.new(1,1)
-FPSLabel.Position = UDim2.new(1,-10,1,-10)
-FPSLabel.Size = UDim2.new(0,140,0,35)
-FPSLabel.BackgroundColor3 = Color3.fromRGB(0,0,0)
-FPSLabel.BackgroundTransparency = 0.3
-FPSLabel.TextColor3 = Color3.new(1,1,1)
-FPSLabel.Font = Enum.Font.SourceSansBold
-FPSLabel.TextScaled = true
-FPSLabel.Text = "FPS: 0"
+--// TITLE BAR
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0.12,0)
+title.Text = "GIVE TOOLS HUB"
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundColor3 = Color3.fromRGB(80,80,80)
+title.Parent = hub
 
--- ================== FPS SYSTEM ==================
-local fpsCount,lastTick = 0,tick()
-RunService.RenderStepped:Connect(function()
-    fpsCount += 1
-    if tick() - lastTick >= 1 then
-        FPSLabel.Text = "FPS: "..fpsCount
-        fpsCount = 0
-        lastTick = tick()
-        if Camera.ViewportSize.X < 1000 then
-            FPSLabel.TextSize = 14
-        else
-            FPSLabel.TextSize = 20
-        end
+--// DRAG MOBILE + PC
+title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragToggle = true
+        dragStart = input.Position
+        startPos = hub.Position
     end
 end)
 
--- ================== ANTI-LAG ==================
-local AntiLagActive = false
-local AntiLagCons = {}
-
-local function isOnScreen(part)
-    local _, visible = Camera:WorldToViewportPoint(part.Position)
-    return visible
-end
-
-local function disableEffects(obj)
-    for _,v in pairs(obj:GetDescendants()) do
-        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") then
-            v.Enabled = false
-        elseif v:IsA("Decal") or v:IsA("Texture") then
-            v:Destroy()
-        elseif v:IsA("AnimationController") then
-            v:Destroy()
-        elseif v:IsA("Humanoid") and v.Parent ~= LocalPlayer.Character then
-            v:Destroy()
-        elseif v:IsA("Part") and v.Parent ~= LocalPlayer.Character then
-            -- Remove cubos desnecessários nos players
-            if v.Size.Magnitude <= 5 then
-                v:Destroy()
-            end
-        end
+title.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragToggle = false
     end
-end
+end)
 
-local function renderControl()
-    for _,plr in pairs(Players:GetPlayers()) do
-        if plr.Character then
-            for _,part in pairs(plr.Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    if plr ~= LocalPlayer and not isOnScreen(part) then
-                        part.Transparency = 1
-                        part.CanCollide = false
-                    else
-                        part.Transparency = 0
-                        part.CanCollide = true
-                    end
-                end
-            end
-        end
+UIS.InputChanged:Connect(function(input)
+    if dragToggle and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        hub.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
     end
-end
+end)
 
-local function toggleFPS()
-    AntiLagActive = not AntiLagActive
-    if AntiLagActive then
-        FPSButton.BackgroundColor3 = Color3.fromRGB(0,255,0)
-        disableEffects(Workspace)
-        table.insert(AntiLagCons, Workspace.DescendantAdded:Connect(disableEffects))
-        table.insert(AntiLagCons, RunService.RenderStepped:Connect(renderControl))
+--// BOTÃO TOGGLE
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0.9,0,0.1,0)
+toggleBtn.Position = UDim2.new(0.05,0,0.14,0)
+toggleBtn.Text = "GIVE TOOLS: OFF"
+toggleBtn.TextScaled = true
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(150,0,0)
+toggleBtn.Parent = hub
+
+toggleBtn.MouseButton1Click:Connect(function()
+    giveEnabled = not giveEnabled
+    if giveEnabled then
+        toggleBtn.Text = "GIVE TOOLS: ON"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
     else
-        FPSButton.BackgroundColor3 = Color3.fromRGB(255,0,0)
-        for _,c in pairs(AntiLagCons) do c:Disconnect() end
-        AntiLagCons = {}
-        for _,plr in pairs(Players:GetPlayers()) do
-            if plr.Character then
-                for _,part in pairs(plr.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.Transparency = 0
-                        part.CanCollide = true
-                    end
-                end
+        toggleBtn.Text = "GIVE TOOLS: OFF"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(150,0,0)
+    end
+end)
+
+--// SCROLL
+local list = Instance.new("ScrollingFrame")
+list.Size = UDim2.new(0.9,0,0.7,0)
+list.Position = UDim2.new(0.05,0,0.26,0)
+list.CanvasSize = UDim2.new(0,0,0,0)
+list.ScrollBarImageTransparency = 0
+list.BackgroundColor3 = Color3.fromRGB(40,40,40)
+list.BorderSizePixel = 0
+list.Parent = hub
+
+local layout = Instance.new("UIListLayout", list)
+layout.Padding = UDim.new(0,10)
+
+--// BUSCA DE TOOLS
+local SEARCH = {
+    workspace,
+    game:GetService("ReplicatedStorage"),
+    game:GetService("ServerStorage")
+}
+
+local function getAllTools()
+    local found = {}
+    for _, place in ipairs(SEARCH) do
+        for _, obj in ipairs(place:GetDescendants()) do
+            if obj:IsA("Tool") and not found[obj.Name] then
+                found[obj.Name] = obj
             end
         end
     end
+    return found
 end
 
-FPSButton.MouseButton1Click:Connect(toggleFPS)
+--// GIVE TOOL
+local function giveTool(tool)
+    if not giveEnabled then return end
+    local clone = tool:Clone()
+    clone.Parent = backpack
+end
+
+--// GERAR BOTÕES
+local tools = getAllTools()
+for name, tool in pairs(tools) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,0,0,50)
+    btn.Text = name
+    btn.TextScaled = true
+    btn.Font = Enum.Font.Gotham
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+    btn.Parent = list
+
+    btn.MouseButton1Click:Connect(function()
+        giveTool(tool)
+    end)
+end
+
+task.wait()
+list.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 20)
