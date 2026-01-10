@@ -1,8 +1,10 @@
--- Hub Anti-Lag +FPS
+-- Hub Anti-Lag Hardcore +FPS
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local StarterPlayer = game:GetService("StarterPlayer")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local Camera = Workspace.CurrentCamera
@@ -31,18 +33,22 @@ FPSButton.Font = Enum.Font.SourceSansBold
 FPSButton.TextScaled = true
 FPSButton.Parent = Hub
 
+-- FPS display no canto inferior direito
 local FPSLabel = Instance.new("TextLabel")
-FPSLabel.Size = UDim2.new(0,60,0,25)
-FPSLabel.Position = UDim2.new(1,10,0,0)
-FPSLabel.BackgroundTransparency = 1
+FPSLabel.AnchorPoint = Vector2.new(1,1)
+FPSLabel.Position = UDim2.new(1, -10, 1, -10)
+FPSLabel.Size = UDim2.new(0,120,0,40)
+FPSLabel.BackgroundTransparency = 0.5
+FPSLabel.BackgroundColor3 = Color3.fromRGB(0,0,0)
 FPSLabel.TextColor3 = Color3.fromRGB(255,255,255)
 FPSLabel.Font = Enum.Font.SourceSansBold
 FPSLabel.TextScaled = true
 FPSLabel.Text = "FPS: 0"
-FPSLabel.Parent = Hub
+FPSLabel.Parent = ScreenGui
 
 -- ======= Anti-lag =======
 local AntiLagActive = false
+local Connections = {}
 
 local function disableEffects(obj)
     for _, v in pairs(obj:GetDescendants()) do
@@ -50,6 +56,14 @@ local function disableEffects(obj)
             v.Enabled = false
         elseif v:IsA("Decal") or v:IsA("Texture") then
             v:Destroy()
+        elseif v:IsA("AnimationController") or v:IsA("Humanoid") then
+            if v.Parent ~= LocalPlayer.Character then
+                if v:IsA("Humanoid") then
+                    v:Destroy() -- desativa animações de outros players
+                else
+                    v:Destroy()
+                end
+            end
         end
     end
 end
@@ -59,14 +73,56 @@ local function isOnScreen(part)
     return onScreen
 end
 
-local function activateAntiLag()
-    if AntiLagActive then return end
-    AntiLagActive = true
+local function setPartsVisibility()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            for _, part in pairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if player == LocalPlayer then
+                        part.Transparency = 0
+                        part.CanCollide = true
+                    else
+                        if not isOnScreen(part) then
+                            part.Transparency = 1
+                            part.CanCollide = false
+                        else
+                            part.Transparency = 0
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
 
-    -- Botão fica verde
+local function activateAntiLag()
+    if AntiLagActive then
+        -- Desativa Anti-Lag
+        AntiLagActive = false
+        FPSButton.BackgroundColor3 = Color3.fromRGB(255,0,0)
+        for _, conn in pairs(Connections) do
+            conn:Disconnect()
+        end
+        Connections = {}
+        -- Re-renderiza todos
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Character then
+                for _, part in pairs(player.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Transparency = 0
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end
+        return
+    end
+
+    AntiLagActive = true
     FPSButton.BackgroundColor3 = Color3.fromRGB(0,255,0)
 
-    -- Inicial desativa efeitos do mapa
+    -- Inicial desativa efeitos
     disableEffects(Workspace)
 
     -- Remove objetos gigantes
@@ -79,37 +135,11 @@ local function activateAntiLag()
     end
 
     -- Anti-lag contínuo
-    Workspace.DescendantAdded:Connect(function(obj)
-        disableEffects(obj)
-    end)
-
-    -- Render apenas partes visíveis
-    RunService.RenderStepped:Connect(function()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Character then
-                for _, part in pairs(player.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        if player == LocalPlayer then
-                            part.Transparency = 0
-                        else
-                            if not isOnScreen(part) then
-                                part.Transparency = 1
-                                part.CanCollide = false
-                            else
-                                part.Transparency = 0
-                                part.CanCollide = true
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
+    table.insert(Connections, Workspace.DescendantAdded:Connect(disableEffects))
+    table.insert(Connections, RunService.RenderStepped:Connect(setPartsVisibility))
 end
 
-FPSButton.MouseButton1Click:Connect(function()
-    activateAntiLag()
-end)
+FPSButton.MouseButton1Click:Connect(activateAntiLag)
 
 -- ======= AFPS =======
 local lastTime = tick()
@@ -118,8 +148,16 @@ RunService.RenderStepped:Connect(function()
     frameCount = frameCount + 1
     local now = tick()
     if now - lastTime >= 1 then
-        FPSLabel.Text = "FPS: "..frameCount
+        local fps = frameCount
         frameCount = 0
         lastTime = now
+        -- Ajusta tamanho do FPS para PC/mobile
+        local screenX = Camera.ViewportSize.X
+        if screenX < 1000 then
+            FPSLabel.TextSize = 14
+        else
+            FPSLabel.TextSize = 20
+        end
+        FPSLabel.Text = "FPS: "..fps
     end
 end)
